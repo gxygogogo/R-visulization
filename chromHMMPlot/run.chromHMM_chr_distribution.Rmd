@@ -1,0 +1,351 @@
+---
+title: "chromHMM全染色体分布图"
+output: html_notebook
+---
+```{r}
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+library(ChIPseeker)
+library(ggchicklet)
+library(gridExtra)
+if(FALSE){
+  ## 15 States
+  # 1   TssA            255,0,0         "#FF0000"
+  # 2   TssAFlnk        255,69,0        "#FF4500"
+  # 3   TxFlnk          50,205,50       "#32CD32"
+  # 4   Tx              0,128,0         "#008000"
+  # 5   TxWk	          0,100,0         "#006400"
+  # 6   EnhG	          194,225,5       "#C2E105"
+  # 7   Enh	            255,255,0       "#FFFF00"
+  # 8   ZNF/Rpts        102,205,170     "#66CDAA"
+  # 9   Het	            138,145,208     "#8A91D0"
+  # 10  TssBiv          205,92,92       "#CD5C5C"
+  # 11  BivFlnk         233,150,122     "#E9967A"
+  # 12  EnhBiv          189,183,107     "#BDB76B"
+  # 13  ReprPC          128,128,128     "#808080"
+  # 14  ReprPCWk        192,192,192     "#C0C0C0"
+  # 15  Quies	          226,226,226     "#E2E2E2"
+
+  ## 18 States
+  # 1	  TssA	          255,0,0         "#FF0000"
+  # 2	  TssFlnk	        255,69,0        "#FF4500"
+  # 3	  TssFlnkU	      255,69,0        "#FF4500"
+  # 4	  TssFlnkD	      255,69,0        "#FF4500"
+  # 5	  Tx	            0,128,0         "#008000"
+  # 6	  TxWk	          0,100,0         "#006400"
+  # 7	  EnhG1	          194,225,5       "#C2E105"
+  # 8	  EnhG2	          194,225,5       "#C2E105"
+  # 9	  EnhA1	          255,195,77      "#FFC34D"
+  # 10	EnhA2	          255,195,77      "#FFC34D"
+  # 11	EnhWk	          255,255,0       "#FFFF00"
+  # 12	ZNF/Rpts	      102,205,170     "#66CDAA"
+  # 13	Het	            138,145,208     "#8A91D0"
+  # 14	TssBiv	        205,92,92       "#CD5C5C"
+  # 15	EnhBiv	        189,183,107     "#BDB76B"
+  # 16	ReprPC	        128,128,128     "#808080"
+  # 17	ReprPCWk	      192,192,192     "#C0C0C0"
+  # 18	Quies	          226,226,226     "#E2E2E2"
+}
+```
+```{r}
+## 染色质状态预测图绘制
+plot_emi_map = function(file_path, title){
+  tmp = read.table(file_path, sep = "\t", header = T)
+  plot_df = melt(tmp, id.vars = "State..Emission.order.")
+  plot_df$State..Emission.order. = as.character(plot_df$State..Emission.order.)
+  plot_df$State..Emission.order. = factor(plot_df$State..Emission.order., levels = rev(c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18")))
+  plot_df$variable = factor(plot_df$variable, levels = c("H3K27ac", "BRD4", "NIPBL", "P300", "HDAC1", "CTCF", "H3K27me3"))
+  
+  p = ggplot(plot_df, aes(x = variable, y = State..Emission.order., fill = value))+
+    geom_tile()+
+    scale_fill_gradient(low = "white", high = "#08519C")+
+    labs(y = "States", title = title, fill = "Probabilty")+
+    theme_bw()+
+    theme(panel.grid = element_blank(),
+          panel.background = element_blank(),
+          plot.background = element_blank(),
+          plot.title = element_text(face = "bold", colour = "black", hjust = 0.5),
+          axis.title.x.bottom = element_blank(),
+          axis.text.x.bottom = element_text(angle = 90, colour = "black", hjust = 1, vjust = 0.5))
+  return(p)
+}
+merge_p = plot_emi_map(file_path = "D:/chromHMM/merge/emissions_18_chrhmm.txt", title = "Emission")
+wt_p = plot_emi_map(file_path = "D:/chromHMM/wt_emissions_15_chrhmm.txt", title = "WT Emission")
+sa1ko_p = plot_emi_map(file_path = "D:/chromHMM/sa1ko_emissions_15_chrhmm.txt", title = "SA1KO Emission")
+sa2ko_p = plot_emi_map(file_path = "D:/chromHMM/sa2ko_emissions_15_chrhmm.txt", title = "SA2KO Emission")
+
+print(merge_p)
+```
+```{r}
+## WT、SA1KO、SA2KO染色质状态变化
+wt_bed = read.table("D:/chromHMM/merge/WT_15_chrhmm_dense.bed", sep = "\t", skip = 1)
+sa1ko_bed = read.table("D:/chromHMM/merge/SA1KO_15_chrhmm_dense.bed", sep = "\t", skip = 1)
+sa2ko_bed = read.table("D:/chromHMM/merge/SA2KO_15_chrhmm_dense.bed", sep = "\t", skip = 1)
+
+wt_stat_df = data.frame(round(table(wt_bed$V4)/sum(table(wt_bed$V4)), 2))
+sa1ko_stat_df = data.frame(round(table(sa1ko_bed$V4)/sum(table(sa1ko_bed$V4)), 2))
+sa2ko_stat_df = data.frame(round(table(sa2ko_bed$V4)/sum(table(sa2ko_bed$V4)), 2))
+plot_df = rbind(wt_stat_df, sa1ko_stat_df, sa2ko_stat_df)
+plot_df$group = c(rep("WT", 15), rep("SA1KO", 15), rep("SA2KO", 15))
+plot_df$group = factor(plot_df$group, levels = c("WT", "SA1KO", "SA2KO"))
+plot_df$Var1 = factor(plot_df$Var1, levels = rev(c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15")))
+
+ggplot(plot_df, aes(x = group, y = Var1, fill = Freq))+
+  geom_tile(color = "white", linetype = 1, lwd = 0.5)+
+  geom_text(aes(label = Freq), size = 3)+
+  scale_fill_gradient(low = "white", high = "#08519C")+
+  labs(y = "States", title = "Percentage")+
+  theme_bw()+
+  theme(panel.grid = element_blank(),
+        panel.background = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(face = "bold", colour = "black", hjust = 0.5),
+        axis.title.x.bottom = element_blank(),
+        axis.text.x.bottom = element_text(angle = 90, colour = "black", hjust = 1, vjust = 0.5))
+```
+```{r}
+## 对WT、SA1KO、SA2KO染色质状态重新赋予颜色
+color_df = data.frame(state_num = c(1:15),
+                      state_str = c("TssA","TssAFlnk","TxFlnk","Tx","TxWk","EnhG","Enh","ZNF/Rpts","Het","TssBiv","BivFlnk","EnhBiv","ReprPC","ReprPCWk","Quies"),
+                      color = c("255,0,0","255,69,0","50,205,50","0,128,0","0,100,0","194,225,5","255,255,0","102,205,170","138,145,208","205,92,92","233,150,122","189,183,107","128,128,128","192,192,192","226,226,226"))
+# color_df = data.frame(state_num = c(1:18),
+#                       state_str = c("TssA","TssFlnk","TssFlnkU","TssFlnkD","Tx","TxWk","EnhG1","EnhG2","EnhA1","EnhA2","EnhWk","ZNF/Rpts","Het","TssBiv","EnhBiv","ReprPC","ReprPCWk","Quies"),
+#                       color = c("255,0,0","255,69,0","255,69,0","255,69,0","0,128,0","0,100,0","194,225,5","194,225,5","255,195,77","255,195,77","255,255,0","102,205,170","138,145,208","205,92,92","189,183,107","128,128,128","192,192,192","226,226,226"))
+wt_new = merge(wt_bed, color_df, by.x = "V4", by.y = "state_num")
+sa1ko_new = merge(sa1ko_bed, color_df, by.x = "V4", by.y = "state_num")
+sa2ko_new = merge(sa2ko_bed, color_df, by.x = "V4", by.y = "state_num")
+
+# write.table(wt_new[,c("V1", "V2", "V3", "state_str", "V5", "V6", "V7", "V8", "color")], file = "D:/chromHMM/merge/WT_18_chrhmm_dense.V2.bed", sep = "\t", row.names = F, col.names = F, quote = F)
+# write.table(sa1ko_new[,c("V1", "V2", "V3", "state_str", "V5", "V6", "V7", "V8", "color")], file = "D:/chromHMM/merge/SA1KO_18_chrhmm_dense.V2.bed", sep = "\t", row.names = F, col.names = F, quote = F)
+# write.table(sa2ko_new[,c("V1", "V2", "V3", "state_str", "V5", "V6", "V7", "V8", "color")], file = "D:/chromHMM/merge/SA2KO_18_chrhmm_dense.V2.bed", sep = "\t", row.names = F, col.names = F, quote = F)
+
+## state相关性
+plot_trans = function(filepath, title){
+  tmp = read.table(filepath, sep = "\t", header = T)
+  colnames(tmp) = c("label", "1","2","3","4","5","6","7","8","9","10","11","12","13","14","15")
+  tmp$label = as.character(tmp$label)
+  plot_df = melt(tmp, id.vars = "label")
+  plot_df$label = factor(plot_df$label, levels = rev(c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15")))
+  plot_df$variable = factor(plot_df$variable, labels = c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15"))
+  
+  p = ggplot(plot_df, aes(x = variable, y = label, fill = value))+
+    geom_tile()+
+    scale_fill_gradient(low = "white", high = "#08519C")+
+    labs(title = title)+
+    theme_bw()+
+    theme(panel.grid = element_blank(),
+          panel.background = element_blank(),
+          plot.background = element_blank(),
+          plot.title = element_text(face = "bold", colour = "black", hjust = 0.5),
+          axis.title.x.bottom = element_blank(),
+          axis.title.y.left = element_blank(),
+          axis.text.x.bottom = element_text(colour = "black", hjust = 1, vjust = 0.5))
+  return(p)
+}
+
+merge_trans_p = plot_trans(filepath = "D:/chromHMM/merge/transitions_15_chrhmm.txt", title = "15 States")
+wt_trans_p = plot_trans(filepath = "D:/chromHMM/wt_transitions_15_chrhmm.txt", title = "WT")
+sa1ko_trans_p = plot_trans(filepath = "D:/chromHMM/sa1ko_transitions_15_chrhmm.txt", title = "SA1KO")
+sa2ko_trans_p = plot_trans(filepath = "D:/chromHMM/sa2ko_transitions_15_chrhmm.txt", title = "SA2KO")
+
+print(merge_trans_p)
+
+```
+```{r}
+## 绘制染色体分布图
+chr_size = read.table("D:/chromHMM/ChromInfo.txt", sep = "\t", header = F)
+chr_size$x = rev(seq(1, 48, 2))
+chr_size$V1 = factor(chr_size$V1, levels = rev(c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", 
+                                                 "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY")))
+head(chr_size)
+dt = chr_size[,c("V1", "x")]
+head(dt)
+wt_region = merge(wt_new, chr_size[,c("V1", "x")], by.x = "V1", by.y = "V1")
+wt_region$V1 = factor(wt_region$V1, levels = rev(c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", 
+                                                 "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY")))
+
+sa1ko_region = merge(sa1ko_new, chr_size[,c("V1", "x")], by.x = "V1", by.y = "V1")
+sa1ko_region$V1 = factor(sa1ko_region$V1, levels = rev(c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", 
+                                                   "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY")))
+
+sa2ko_region = merge(sa2ko_new, chr_size[,c("V1", "x")], by.x = "V1", by.y = "V1")
+sa2ko_region$V1 = factor(sa2ko_region$V1, levels = rev(c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", 
+                                                         "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY")))
+
+p1 = ggplot()+
+  ggchicklet:::geom_rrect(chr_size, mapping = aes(ymin = 0, ymax = V2, xmin = x-0.5, xmax = x+0.5), color = "black", fill = "white")+
+  geom_rect(wt_region, mapping = aes(ymin = V2, ymax = V3, xmin = x-0.5, xmax = x+0.5, fill = state_str))+
+  coord_flip()+
+  scale_x_continuous(breaks = dt$x, labels = dt$V1)+
+  #CD5C5C, 
+  scale_fill_manual(values = c("#E9967A",
+                               "#FFFF00",
+                               "#BDB76B",
+                               "#C2E105",
+                               "#8A91D0",
+                               "#E2E2E2",
+                               "#808080",
+                               "#C0C0C0",
+                               "#FF0000",
+                               "#FF4500",
+                               "#CD5C5C",
+                               "#008000",
+                               "#32CD32",
+                               "#006400",
+                               "#66CDAA"))+
+  labs(title = "WT 15 chromHMM states distribution", fill = "States")+
+  theme_classic()+
+  theme(axis.line.x = element_blank(),
+        axis.line.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(colour = "black", face = "bold"),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        plot.title = element_text(colour = "black", face = "bold", size = 10, hjust = 0.5),
+        legend.key.size = unit(7, "pt"),
+        legend.text = element_text(size = 6))
+p2 = ggplot()+
+  ggchicklet:::geom_rrect(chr_size, mapping = aes(ymin = 0, ymax = V2, xmin = x-0.5, xmax = x+0.5), color = "black", fill = "white")+
+  geom_rect(sa1ko_region, mapping = aes(ymin = V2, ymax = V3, xmin = x-0.5, xmax = x+0.5, fill = state_str))+
+  coord_flip()+
+  scale_x_continuous(breaks = dt$x, labels = dt$V1)+
+  #CD5C5C, 
+  scale_fill_manual(values = c("#E9967A",
+                               "#FFFF00",
+                               "#BDB76B",
+                               "#C2E105",
+                               "#8A91D0",
+                               "#E2E2E2",
+                               "#808080",
+                               "#C0C0C0",
+                               "#FF0000",
+                               "#FF4500",
+                               "#CD5C5C",
+                               "#008000",
+                               "#32CD32",
+                               "#006400",
+                               "#66CDAA"))+
+  labs(title = "SA1KO 15 chromHMM states distribution", fill = "States")+
+  theme_classic()+
+  theme(axis.line.x = element_blank(),
+        axis.line.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(colour = "black", face = "bold"),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        plot.title = element_text(colour = "black", face = "bold", size = 10, hjust = 0.5),
+        legend.key.size = unit(7, "pt"),
+        legend.text = element_text(size = 6))
+p3 = ggplot()+
+  ggchicklet:::geom_rrect(chr_size, mapping = aes(ymin = 0, ymax = V2, xmin = x-0.5, xmax = x+0.5), color = "black", fill = "white")+
+  geom_rect(sa2ko_region, mapping = aes(ymin = V2, ymax = V3, xmin = x-0.5, xmax = x+0.5, fill = state_str))+
+  coord_flip()+
+  scale_x_continuous(breaks = dt$x, labels = dt$V1)+
+  #CD5C5C, 
+  scale_fill_manual(values = c("#E9967A",
+                               "#FFFF00",
+                               "#BDB76B",
+                               "#C2E105",
+                               "#8A91D0",
+                               "#E2E2E2",
+                               "#808080",
+                               "#C0C0C0",
+                               "#FF0000",
+                               "#FF4500",
+                               "#CD5C5C",
+                               "#008000",
+                               "#32CD32",
+                               "#006400",
+                               "#66CDAA"))+
+  labs(title = "SA2KO 15 chromHMM states distribution", fill = "States")+
+  theme_classic()+
+  theme(axis.line.x = element_blank(),
+        axis.line.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(colour = "black", face = "bold"),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        plot.title = element_text(colour = "black", face = "bold", size = 10, hjust = 0.5),
+        legend.key.size = unit(7, "pt"),
+        legend.text = element_text(size = 6))
+grid.arrange(p1, p2, p3, nrow = 3)
+```
+三种基因型的chromHMM在基因组中的比较
+```{r}
+### 绘制每条染色体总体比对的chromHMM分布图
+# 绘制三种基因型染色体排列
+chr_size = read.table("D:/chromHMM/ChromInfo.txt", sep = "\t", header = F)
+chr_size$x = rev(seq(1, 96, 4))
+chr_size$V1 = factor(chr_size$V1, levels = rev(c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", 
+                                                 "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY")))
+chr_df = rbind(chr_size, chr_size, chr_size)
+chr_df$group = c(rep("WT", 24), rep("SA1KO", 24), rep("SA2KO", 24))
+chr_df[which(chr_df$group == "SA1KO"), "x"] = chr_df[which(chr_df$group == "WT"), "x"] + 1.2
+chr_df[which(chr_df$group == "SA2KO"), "x"] = chr_df[which(chr_df$group == "WT"), "x"] + 2.4
+head(chr_df)
+# chr_df$group = factor(chr_df$group, levels = c("WT", "SA1KO", "SA2KO"))
+# 构造三种基因型chromHMM绘图数据
+wt_bed = read.table("D:/chromHMM/merge/WT_15_chrhmm_dense.bed", sep = "\t", skip = 1)
+sa1ko_bed = read.table("D:/chromHMM/merge/SA1KO_15_chrhmm_dense.bed", sep = "\t", skip = 1)
+sa2ko_bed = read.table("D:/chromHMM/merge/SA2KO_15_chrhmm_dense.bed", sep = "\t", skip = 1)
+color_df = data.frame(state_num = c(1:15),
+                      state_str = c("TssA","TssAFlnk","TxFlnk","Tx","TxWk","EnhG","Enh","ZNF/Rpts","Het","TssBiv","BivFlnk","EnhBiv","ReprPC","ReprPCWk","Quies"),
+                      color = c("255,0,0","255,69,0","50,205,50","0,128,0","0,100,0","194,225,5","255,255,0","102,205,170","138,145,208","205,92,92","233,150,122","189,183,107","128,128,128","192,192,192","226,226,226"))
+# color_df = data.frame(state_num = c(1:18),
+#                       state_str = c("TssA","TssFlnk","TssFlnkU","TssFlnkD","Tx","TxWk","EnhG1","EnhG2","EnhA1","EnhA2","EnhWk","ZNF/Rpts","Het","TssBiv","EnhBiv","ReprPC","ReprPCWk","Quies"),
+#                       color = c("255,0,0","255,69,0","255,69,0","255,69,0","0,128,0","0,100,0","194,225,5","194,225,5","255,195,77","255,195,77","255,255,0","102,205,170","138,145,208","205,92,92","189,183,107","128,128,128","192,192,192","226,226,226"))
+wt_new = merge(wt_bed, color_df, by.x = "V4", by.y = "state_num")
+sa1ko_new = merge(sa1ko_bed, color_df, by.x = "V4", by.y = "state_num")
+sa2ko_new = merge(sa2ko_bed, color_df, by.x = "V4", by.y = "state_num")
+
+wt_region = merge(wt_new, chr_df[which(chr_df$group == "WT"),c("V1", "x")], by.x = "V1", by.y = "V1")
+wt_region$V1 = factor(wt_region$V1, levels = rev(c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", 
+                                                   "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY")))
+
+sa1ko_region = merge(sa1ko_new, chr_df[which(chr_df$group == "SA1KO"),c("V1", "x")], by.x = "V1", by.y = "V1")
+sa1ko_region$V1 = factor(sa1ko_region$V1, levels = rev(c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", 
+                                                         "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY")))
+
+sa2ko_region = merge(sa2ko_new, chr_df[which(chr_df$group == "SA2KO"),c("V1", "x")], by.x = "V1", by.y = "V1")
+sa2ko_region$V1 = factor(sa2ko_region$V1, levels = rev(c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", 
+                                                         "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY")))
+plot_df = rbind(wt_region, sa1ko_region, sa2ko_region)
+plot_df$group = c(rep("WT", nrow(wt_region)), rep("SA1KO", nrow(sa1ko_region)), rep("SA2KO", nrow(sa2ko_region)))
+
+dt = chr_df[chr_df$group == "SA1KO",c("V1", "x")]
+
+# 绘图
+ggplot()+
+  ggchicklet:::geom_rrect(chr_df, mapping = aes(ymin = 0, ymax = V2, xmin = x-0.5, xmax = x+0.5, color = group), fill = "white", alpha = 0)+
+  geom_rect(plot_df, mapping = aes(ymin = V2, ymax = V3, xmin = x-0.5, xmax = x+0.5, fill = state_str))+
+  coord_flip()+
+  scale_x_continuous(breaks = dt$x, labels = dt$V1)+
+  scale_color_manual(values = c("#01CDFE", "#05FFA1", "#B967FF"))+
+  scale_fill_manual(values = c("#E9967A",
+                               "#FFFF00",
+                               "#BDB76B",
+                               "#C2E105",
+                               "#8A91D0",
+                               "#E2E2E2",
+                               "#808080",
+                               "#C0C0C0",
+                               "#FF0000",
+                               "#FF4500",
+                               "#CD5C5C",
+                               "#008000",
+                               "#32CD32",
+                               "#006400",
+                               "#66CDAA"))+
+  labs(title = "15 chromHMM states distribution between WT/SA1KO/SA2KO", fill = "States")+
+  theme_classic()+
+  theme(axis.line.x = element_blank(),
+        axis.line.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(colour = "black", face = "bold"),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        plot.title = element_text(colour = "black", face = "bold", size = 10, hjust = 0.5, margin = margin(t = 10)),
+        legend.key.size = unit(7, "pt"),
+        legend.text = element_text(size = 6))
+```
