@@ -1,0 +1,75 @@
+---
+title: "雷达图"
+output: html_notebook
+---
+
+```{r}
+rm(list = ls())
+library(ggradar)
+library(ggplot2)
+library(dplyr)
+```
+```{r}
+chromData = function(df, label){
+  ##添加label
+  df$label = rep(label, dim(df)[1])
+  ##统计每种染色质状态，并去除每个数字前面的空格
+  df_stat = data.frame(table(df$V2))
+  df_stat$Freq = gsub("\\s+", "", df_stat$Freq)
+  ##添加分组
+  df_stat$group = rep(label, dim(df_stat)[1])
+  ##计算各种染色质状态占比
+  df_stat$labels = scales::percent(as.numeric(df_stat$Freq)/sum(as.numeric(df_stat$Freq)))
+  df_stat$Perc = as.numeric(df_stat$Freq)/sum(as.numeric(df_stat$Freq))
+  return(df_stat)
+}
+
+################################################################################################################################################
+# 读取注释文件
+WT_SA2KO_UP_chromHMM = read.table("D:/plot_data/radar/SA2KO_UP_chromHMM.txt", sep = "\t", header = F)
+WT_SA2KO_DOWN_chromHMM = read.table("D:/plot_data/radar/SA2KO_DOWN_chromHMM.txt", sep = "\t", header = F)
+WT_SA1KO_UP_chromHMM = read.table("D:/plot_data/radar/SA1KO_UP_chromHMM.txt", sep = "\t", header = F)
+WT_SA1KO_DOWN_chromHMM = read.table("D:/plot_data/radar/SA1KO_DOWN_chromHMM.txt", sep = "\t", header = F)
+################################################################################################################################################
+SA2KO_UP_df = chromData(WT_SA2KO_UP_chromHMM, label = "SA2KO UP Region")
+SA2KO_DOWN_df = chromData(WT_SA2KO_DOWN_chromHMM, label = "SA2KO DOWN Region")
+SA1KO_UP_df = chromData(WT_SA1KO_UP_chromHMM, label = "SA1KO UP Region")
+SA1KO_DWON_df = chromData(WT_SA1KO_DOWN_chromHMM, label = "SA1KO DOWN Region")
+
+plot_df = merge(SA2KO_UP_df[,c("Var1", "Perc")], SA2KO_DOWN_df[,c("Var1", "Perc")], by = "Var1") %>% merge(SA1KO_UP_df[,c("Var1", "Perc")], by = "Var1") %>%
+          merge(SA1KO_DWON_df[, c("Var1", "Perc")], by = "Var1") %>% t() %>% as.data.frame()
+colnames(plot_df) = plot_df[1,]
+plot_df = plot_df[-1,]
+plot_df$group = c("SA2KO UP Region", "SA2KO DOWN Region", "SA1KO UP Region", "SA1KO DOWN Region")
+plot_df = plot_df[,c(10, 1:9)]
+radar_data = as_tibble(plot_df)
+radar_data$ActivePromoter = as.numeric(radar_data$ActivePromoter)
+radar_data$CandidateStrongEnhancer = as.numeric(radar_data$CandidateStrongEnhancer)
+radar_data$`CandidateWeakEnhancer/DNase` = as.numeric(radar_data$`CandidateWeakEnhancer/DNase`)
+radar_data$`DistalCTCF/CandidateInsulator`  =as.numeric(radar_data$`DistalCTCF/CandidateInsulator`)
+radar_data$`Heterochromatin/Repetitive/CopyNumberVariation` = as.numeric(radar_data$`Heterochromatin/Repetitive/CopyNumberVariation`)
+radar_data$InactivePromoter = as.numeric(radar_data$InactivePromoter)
+radar_data$LowActivityProximalToActive = as.numeric(radar_data$LowActivityProximalToActive)
+radar_data$PolycombRepressed = as.numeric(radar_data$PolycombRepressed)
+radar_data$TranscriptionAssociated = as.numeric(radar_data$TranscriptionAssociated)
+
+head(radar_data)
+
+ggradar(radar_data,
+        values.radar = c("0%", "30%", "60%"),
+        base.size = 8,
+        group.point.size = 3,
+        group.line.width = 1.2,
+        plot.extent.x.sf = 1.2,
+        plot.extent.y.sf = 1.5,
+        axis.label.size = 3,
+        legend.text.size = 8,
+        legend.position = "top",
+        group.colours = c("#F465B1", "#4188FF", "#FF833F", "#3CB03E"),
+        background.circle.colour = "#F5F1E7",
+        gridline.mid.colour = "#AEDFF2",
+        gridline.max.colour = "#7EBCF2",
+        grid.min = 0,
+        grid.mid = 0.3,
+        grid.max = 0.6)
+```
