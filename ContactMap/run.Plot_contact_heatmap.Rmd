@@ -1,0 +1,135 @@
+---
+title: "Contact Heatmap"
+output: html_notebook
+---
+绘制染色体互作热图
+解析HicExplorer生成的h5文件，本文也是基于h5文件进行热图绘制
+```{r}
+# library(rhdf5)
+# library(dplyr)
+# library(ggplot2)
+# library(reshape2)
+# library(tidyverse)
+# 
+# ## 获取h5文件各个数据集，保存均为list
+# contact_matrix = h5read("/data3/xiongdan/plot_hicdc_out_matrix/DLGAP1/9_GW11B3_d20_ChIAPET_CTCF_merged_B1_2_3.matrix.10kb.h5", "/matrix")
+# contact_intervals = h5read("/data3/xiongdan/plot_hicdc_out_matrix/DLGAP1/9_GW11B3_d20_ChIAPET_CTCF_merged_B1_2_3.matrix.10kb.h5", "/intervals")
+# contact_nan_bins = h5read("/data3/xiongdan/plot_hicdc_out_matrix/DLGAP1/9_GW11B3_d20_ChIAPET_CTCF_merged_B1_2_3.matrix.10kb.h5", "/nan_bins") %>% as.data.frame()
+# 
+# ## 拆解各个列表
+# ## 拆解matrix数据集
+# contact_matrix_shape = contact_matrix$shape %>% as.data.frame()
+# contact_matrix_data = matrix(contact_matrix$data, nrow = contact_matrix$shape[1,1], ncol = contact_matrix$shape[2,1]) %>% as.data.frame()
+# contact_matrix_indices = contact_matrix$indices %>% as.data.frame()
+# contact_matrix_indptr = contact_matrix$indptr %>% as.data.frame()
+# 
+# ## 拆解intervals数据集
+# contact_intervals_chr_list = contact_intervals$chr_list %>% as.data.frame()
+# contact_intervals_start_list = contact_intervals$start_list %>% as.data.frame()
+# contact_intervals_end_list = contact_intervals$end_list %>% as.data.frame()
+# contact_intervals_extra_list = contact_intervals$extra_list %>% as.data.frame()
+# 
+# ## bin
+# contact_bin = cbind(contact_intervals_chr_list, contact_intervals_start_list, contact_intervals_end_list)
+# colnames(contact_bin) = c("chr", "start", "end")
+# 
+# head(contact_matrix_data)
+```
+导入R包
+```{r}
+library(RColorBrewer)
+library(ggplot2)
+library(dplyr)
+#library(argparse)
+library(paletteer)
+```
+
+绘图函数
+```{r}
+plot_contact_heatmap = function(filepath, reg, res, cMax, cMin){
+        ## Contact heatmap 主题设定
+        background=(
+          theme_bw() +
+            theme(panel.background = element_blank()) +
+            theme(panel.border = element_rect(size=1.5, colour="#939393", fill=NA)) +
+            theme(panel.grid = element_blank()) +
+            theme(axis.ticks = element_blank()) +
+            theme(axis.text = element_blank()) +
+            theme(axis.title = element_text(size = 7))+
+            theme(legend.key.height = unit(40, "pt"),
+                  legend.key.width = unit(12, "pt"),
+                  legend.title = element_blank())+
+            theme(legend.position = "none")
+        )
+        ## Contact heatmap 颜色设定
+        # color_pal = c("white",brewer.pal(name = "Greens",n=9)[1:6])
+        # color_pal = paletteer_d("RColorBrewer::Greens")
+        color_pal = c("#F8FCF6", "#F3FBEF", "#EEF9E9", "#D6F0CB", "#C7E9C0FF", "#A1D99BFF", "#74C476FF", "#41AB5DFF", "#238B45FF", "#006D2CFF", "#00441BFF")
+        ## 绘制范围
+        reg = reg
+
+        ## 分辨率
+        res = res
+
+        ## 读取文件
+        tab_rawMatrix = read.table(file = filepath, col.names = c('chr', 'bin1', 'bin2', 'count'))
+        tab_rawMatrix$bin1 = tab_rawMatrix$bin1
+        tab_rawMatrix$bin2 = tab_rawMatrix$bin2
+        ## 下三角矩阵
+        tab_rawMatrix_down = data.frame(chr = tab_rawMatrix$chr,
+                                         bin1 = tab_rawMatrix$bin2,
+                                         bin2 = tab_rawMatrix$bin1,
+                                         count = tab_rawMatrix$count)
+        ## 上三角矩阵
+        tab_rawMatrix_up = data.frame(chr = tab_rawMatrix$chr,
+                                       bin1 = tab_rawMatrix$bin1,
+                                       bin2 = tab_rawMatrix$bin2,
+                                       count = tab_rawMatrix$count)
+
+        reg = gsub(",", "", reg)
+        chr = strsplit(reg, split = "[_:-]")[[1]][1]
+        start = as.numeric(strsplit(reg, split = "[_:-]")[[1]][2])
+        end = as.numeric(strsplit(reg, split = "[_:-]")[[1]][3])
+        ## 设定坐标轴标题
+        axis_lab = paste(paste(paste("chr", chr, sep = ""), start, sep = ":"), end, sep = "-")
+        start = min(tab_rawMatrix$bin1, tab_rawMatrix$bin2) #- start%%res
+        end = max(tab_rawMatrix$bin1, tab_rawMatrix$bin2) #+ res - end%%res
+        x_min = start
+        y_min = start
+        x_max = end
+        y_max = end
+        reg_frame_df = data.frame(chr = rep(chr, 4),
+                                   bin1 = c(x_min, x_min, x_max, x_max),
+                                   bin2 = c(y_min, y_max, y_min, y_max),
+                                   count = c(0,0,0,0))
+        ## 构造 ggplot 绘图所需long data type
+        dfplot = rbind(reg_frame_df, tab_rawMatrix_up, tab_rawMatrix_down)
+
+        ## 限制 Contact heatmap 展示最大值
+        dfplot$count[dfplot$count > cMax] = cMax
+        dfplot$count[dfplot$count < cMin] = cMin
+
+        p = ggplot(data = dfplot) + 
+                geom_tile(aes(x = bin2, y = -bin1, fill = count, colour = count)) +
+                geom_abline(slope = -1, intercept = 0, linetype = 2, size = 0.4, colour = "#bdbdbd") +
+                scale_fill_gradientn(colours = color_pal, na.value = "white") +
+                scale_color_gradientn(colours = color_pal, na.value = "white") +
+                scale_x_continuous(expand = c(0,0)) +
+                scale_y_continuous(expand = c(0,0)) +
+                labs(x = axis_lab, y = axis_lab)+
+                background+
+                theme(panel.background = element_rect(fill = "#F8FCF6"))
+        return(p)
+}
+```
+数据读取
+```{r}
+filepath = "D:/plot_data/Contact_heatmap/9_GW11B3_d20_ChIAPET_CTCF_merged_B1_2_3.matrix.10kb.interactions.18_3200000_5100000.bedpe"
+reg = "18_3200000_5100000"
+res = 10000
+cMax = 25
+cMin = 0
+
+p = plot_contact_heatmap(filepath, reg, res, cMax, cMin)
+print(p)
+```
