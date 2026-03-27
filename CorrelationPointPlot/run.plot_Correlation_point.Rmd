@@ -1,0 +1,102 @@
+---
+title: "相关性散点图"
+output: html_notebook
+---
+带有分布密度的相关性散点图
+```{r}
+library(aplot)
+library(ggplot2)
+library(ggpointdensity)
+```
+
+```{r}
+plot_df= read.table("D:/3D evolution figures/CCD/Human/Boundary.cov.scores.from.Neuron.and.GM12878.txt", sep = "\t", header = F)
+
+plot_df$Neuron = log2(plot_df$V4)
+plot_df$GM12878 = log2(plot_df$V8)
+
+x = c()
+y = c()
+
+for(i in 1:nrow(plot_df)){
+  tmp_y1 = plot_df[i, "Neuron"]*1 + 2
+  tmp_y2 = plot_df[i, "Neuron"]*1 - 2
+  if(plot_df[i, "GM12878"] > tmp_y2 & plot_df[i, "GM12878"] < tmp_y1){
+    x = c(x, plot_df[i, "Neuron"])
+    y = c(y, plot_df[i, "GM12878"])
+  }
+}
+
+head(plot_df)
+```
+
+```{r}
+tmp_df = data.frame(Neuron = x, GM12878 = y)
+dense_n = data.frame(density(tmp_df$Neuron)[c('x','y')])
+dense_b = data.frame(density(tmp_df$GM12878)[c('x','y')])
+head(dense_n)
+head(dense_b)
+```
+
+绘制散点图
+```{r}
+p1 = ggplot(tmp_df, aes(x = Neuron, y = GM12878))+
+       geom_pointdensity(adjust = 4)+
+       scale_color_continuous(type = "viridis")+
+       # geom_hline(yintercept = 6, lwd = 0.5, linetype = 2, color = "gray")+
+       geom_hline(yintercept = 5.5, lwd = 0.5, linetype = 2, color = "gray")+
+       geom_hline(yintercept = 9.4, lwd = 0.5, linetype = 2, color = "gray")+
+       # geom_vline(xintercept = 5.5, lwd = 0.5, linetype = 2, color = "gray")+
+       # geom_vline(xintercept = 8.5, lwd = 0.5, linetype = 2, color = "gray")+
+       geom_vline(xintercept = 6, lwd = 0.5, linetype = 2, color = "gray")+
+       geom_vline(xintercept = 9.5, lwd = 0.5, linetype = 2, color = "gray")+
+       annotate("text", x = 2.1, y = 10, label = "R=0.74")+
+       annotate("text", x = 2.2, y = 9, label = "p=2.2e-16")+
+       # geom_point(alpha = 0.7)+
+       # geom_smooth(method = "lm", se = FALSE)+
+       # geom_abline(intercept = 2.5, slope = 0.7, color = "blue", lwd = 1)+
+       # geom_abline(intercept = 3, slope = 1, color = "red", lwd = 1)+
+       # geom_abline(intercept = -1.5, slope = 1, color = "red", lwd = 1)+
+       labs(x = "Neuron CCD boundary cov", y = "B cell CCD boundary cov")+
+       #annotate("text", x = 2, y = 11, label = "R: 0.52")+
+       theme_bw()+
+       theme(panel.grid = element_blank(),
+             panel.border = element_rect(colour = "gray"),
+             axis.text.x = element_text(colour = "black"),
+             axis.text.y = element_text(colour = "black"),
+             axis.title.x = element_text(face = "bold"),
+             axis.title.y = element_text(face = "bold"),
+             axis.ticks = element_line(colour = "gray"))
+```
+
+绘制分布密度图
+```{r}
+p2 = ggplot(tmp_df, aes(Neuron))+
+       geom_density(fill = "grey", color = "grey", alpha = 0.5)+
+       geom_area(data = subset(dense_n, x >= 6 & x<= 9.5), aes(x = x, y = y), fill = "#1BFB11", alpha = 0.5)+
+       geom_vline(xintercept = 6, lwd = 0.5, linetype = 2, color = "gray")+
+       geom_vline(xintercept = 9.5, lwd = 0.5, linetype = 2, color = "gray")+
+       scale_y_continuous(expand = c(0,0))+
+       theme_minimal()+
+       theme(panel.grid = element_blank(),
+             axis.title =element_blank(),
+             axis.text = element_blank(),
+             axis.ticks =element_blank())
+p3 = ggplot(tmp_df,aes(GM12878))+
+       geom_density(fill="grey", color = "grey", alpha=0.5)+
+       geom_area(data = subset(dense_b, x >= 5.5 & x<= 9.4), aes(x = x, y = y), fill = "#1BFB11", alpha = 0.5)+
+       geom_vline(xintercept = 5.5, lwd = 0.5, linetype = 2, color = "gray")+
+       geom_vline(xintercept = 9.4, lwd = 0.5, linetype = 2, color = "gray")+
+       scale_y_continuous(expand =c(0,0))+
+       coord_flip()+
+       theme_minimal()+
+       theme(panel.grid = element_blank(),
+             axis.title =element_blank(),
+             axis.text = element_blank(),
+             axis.ticks =element_blank())
+```
+
+组合
+```{r}
+p1 %>% insert_top(p2, height = 0.15) %>% insert_right(p3, width = 0.15)
+```
