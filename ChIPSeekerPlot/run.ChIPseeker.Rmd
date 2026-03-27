@@ -1,0 +1,114 @@
+---
+title: "ChIPseeker相关图片"
+output: html_notebook
+---
+
+```{r}
+rm(list = ls())
+library(ChIPseeker)
+library(ggplot2)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+```
+
+```{r}
+## data preparation
+Specific_201 = "D:/plot_data/ChIPseeker/GM12878_ChIPseq_SA2_201.peaks"
+Specific_202 = "D:/plot_data/ChIPseeker/GM12878_ChIPseq_SA2_202.bed"
+file_list = list(Specific_201, Specific_202)
+txdb = TxDb.Hsapiens.UCSC.hg38.knownGene
+peak=GenomicRanges::GRangesList(Specific_201=readPeakFile(file_list[[1]]), Specific_202=readPeakFile(file_list[[2]]))
+
+## generate AnnotationList
+peakAnnoList = lapply(file_list, annotatePeak, TxDb=txdb, tssRegion=c(-3000, 3000))
+
+peakAnno_201 = annotatePeak(file_list[[1]], tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Hs.eg.db")
+peakAnno_202 = annotatePeak(file_list[[2]], tssRegion=c(-3000, 3000), TxDb=txdb, annoDb="org.Hs.eg.db")
+## plot dist distribution of nearest gene
+# plotDistToTSS(peakAnno_201)
+# plotDistToTSS(peakAnno_202)
+# plotDistToTSS(peakAnno_common)
+# plotDistToTSS(peakAnnoList)
+
+###### 绘制TSS距离分布图
+p = plotDistToTSS(peakAnnoList)
+plot_df = p$data
+plot_df$type = NA
+plot_df[which(plot_df$.id=="Peak1"),"type"] = "SA2-201 region"
+plot_df[which(plot_df$.id=="Peak2"),"type"] = "SA2-202 region"
+plot_df$type = factor(plot_df$type, levels = c("SA2-201 region", "SA2-202 region"))
+# # A tibble: 36 × 6
+# # Groups:   .id, Feature [18]
+#    .id   Feature   sign  freq .group type  
+#    <fct> <fct>    <dbl> <dbl>  <int> <fct> 
+#  1 Peak3 0-1kb       -1 19.6       6 Common
+#  2 Peak3 0-1kb        1 20.1       6 Common
+#  3 Peak3 1-3kb       -1  4.44      5 Common
+#  4 Peak3 1-3kb        1  4.50      5 Common
+#  5 Peak3 3-5kb       -1  2.99      4 Common
+#  6 Peak3 3-5kb        1  3.19      4 Common
+#  7 Peak3 5-10kb      -1  5.32      3 Common
+#  8 Peak3 5-10kb       1  6.00      3 Common
+#  9 Peak3 10-100kb    -1 14.2       2 Common
+# 10 Peak3 10-100kb     1 16.2       2 Common
+# # ℹ 26 more rows
+# # ℹ Use `print(n = ...)` to see more rows
+```
+```{r}
+## y轴刻度值设置
+ylab = abs(seq(-50, 50, by = 10))
+ylab[ylab==0] = "TSS"
+lbs <- c("0-1kb", "1-3kb", "3-5kb", "5-10kb", "10-100kb", ">100kb")
+cols <- c("#9ecae1", "#3182bd", "#C7A76C", "#86B875", "#39BEB1", "#CD99D8")
+
+ggplot(plot_df, aes(x=type, fill=Feature))+ 
+  geom_bar(data=subset(plot_df, sign==1), aes(y=freq), stat="identity") +
+  geom_bar(data=subset(plot_df, sign==-1), aes(y=-freq), stat="identity")+ 
+  geom_hline(yintercept = 0, colour = "#606060", lty = 2) +
+  coord_flip() + 
+  ylab("Binding sites(%) 5'-->3'")+
+  ggtitle("Distribution of transcription factor-binding loci relative to TSS")+
+  scale_y_continuous(breaks=seq(-50, 50, by = 10),labels=ylab)+
+  scale_fill_manual(values=rev(cols), breaks=rev(lbs), labels=rev(lbs), guide=guide_legend(reverse=TRUE))+
+  theme_bw()+
+  theme(axis.title.y = element_blank(),
+        axis.title.x = element_text(face = "bold"),
+        axis.text.x = element_text(color = "black", size = 10),
+        axis.text.y = element_text(color = "black", size = 10),
+        plot.title = element_text(hjust = 0.5, color = "black", face = "bold", size = 12))
+```
+```{r}
+###### 绘制特征分布图
+p2 = plotAnnoBar(peakAnnoList)
+plot_df2 = p2$data
+plot_df2$type = NA
+plot_df2[which(plot_df2$.id=="Peak1"),"type"] = "SA2-201 Specific region"
+plot_df2[which(plot_df2$.id=="Peak2"),"type"] = "SA2-202 Specific region"
+plot_df2$type = factor(plot_df2$type, levels = c("SA2-201 Specific region", "SA2-202 Specific region"))
+#       .id            Feature   Frequency             type
+# 9   Peak1   Promoter (<=1kb) 11.89811584 SA2-201 Specific
+# 10  Peak1   Promoter (1-2kb)  5.46638753 SA2-201 Specific
+# 11  Peak1   Promoter (2-3kb)  4.76855083 SA2-201 Specific
+# 4   Peak1             5' UTR  0.77925099 SA2-201 Specific
+# 3   Peak1             3' UTR  3.44266108 SA2-201 Specific
+# 1   Peak1           1st Exon  1.23284485 SA2-201 Specific
+# 7   Peak1         Other Exon  4.39637125 SA2-201 Specific
+# 2   Peak1         1st Intron 10.35124448 SA2-201 Specific
+# 8   Peak1       Other Intron 25.79669691 SA2-201 Specific
+# 6   Peak1 Downstream (<=300)  0.09304489 SA2-201 Specific
+# 5   Peak1  Distal Intergenic 31.77483136 SA2-201 Specific
+# 91  Peak2   Promoter (<=1kb) 81.43764434 SA2-202 Specific
+# 101 Peak2   Promoter (1-2kb)  1.67436490 SA2-202 Specific
+# 111 Peak2   Promoter (2-3kb)  1.29907621 SA2-202 Specific
+
+ggplot(plot_df2, aes(x = type, y = Frequency, fill = Feature))+
+  geom_col(position = position_fill())+
+  coord_flip()+
+  ggtitle("Feature Distribution")+
+  scale_fill_manual(values = c("#F2C3A7", "#3182bd", "#C7A76C", "#86B875", "#39BEB1", "#CD99D8", "#10FFBA", "#E0DBF9", "#C1A5D7", "#F26101", "#9ecae1"))+
+  theme_bw()+
+  theme(axis.title.y = element_blank(),
+        axis.title.x = element_text(face = "bold"),
+        axis.text.x = element_text(color = "black", size = 10),
+        axis.text.y = element_text(color = "black", size = 10),
+        plot.title = element_text(hjust = 0.5, color = "black", face = "bold", size = 12))
+```
