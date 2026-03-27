@@ -1,0 +1,148 @@
+---
+title: "特定基因分布绘制"
+output: html_notebook
+---
+
+```{r}
+## library R packages
+library(ggplot2)
+library(ggprism)
+library(patchwork)
+```
+
+```{r}
+## read data
+METTL3 = read.table("D:/plot_data/metaGene/SA2WT_KO_METTL3_B1S2B2S2_depth.txt")
+YTHDC1 = read.table("D:/plot_data/metaGene/SA2WT_KO_YTHDC1_B1S2B2S2_depth.txt")
+
+#############################################################################################################
+## METTL3
+## 取出 input 和 ip 组
+ip1 = METTL3[,c(1,2,5,6)]
+ip2 = METTL3[,c(1,2,9,10)]
+## 计算均值和标准差
+ip1$mean = apply(ip1[,c(3,4)], 1, mean)
+ip1$sd = apply(ip1[,c(3,4)], 1, sd)
+ip1$samp = 'SA2WT'
+colnames(ip1)[3:4] = c('V3','V4')
+
+ip2$mean = apply(ip2[,c(3,4)], 1, mean)
+ip2$sd = apply(ip2[,c(3,4)], 1, sd)
+ip2$samp = 'SA2KO'
+colnames(ip2)[3:4] = c('V3','V4')
+
+## 合并
+p_dat = rbind(ip1,ip2)
+## 查看最后合并后的数据
+p_dat$samp = factor(p_dat$samp,levels=c("SA2WT","SA2KO"))
+head(p_dat)
+p1 = ggplot(p_dat,aes(x=V2,y=mean)) +
+  geom_rect(aes(xmin=21499600,ymin=-Inf,xmax=21503664,ymax=Inf),fill='grey95',alpha=.35) +
+  geom_line(aes(color=samp),size=1) +
+  theme_prism(border = T,base_size = 14,base_line_size=1) +
+  xlab('') + ylab('Read Coverage') +
+  labs(title = 'MeRIP-seq read Distribution') +
+  #主题细节调整
+  theme(axis.title.y = element_text(size = 16),
+        plot.title = element_text(,hjust = .5,size = 16),
+        legend.position = c(0.05,0.9),
+        legend.background = element_blank(),
+        legend.text = element_text(size = 14,face = 'bold'),
+        legend.key.width = unit(1,'cm'),
+        legend.key.height = unit(0.6,'cm')) +
+  # 给线添加方差区间
+  #geom_ribbon(aes(ymin=mean - sd,ymax=mean + sd,fill=samp),alpha=.3,show.legend = F) +
+  # 调整颜色
+  scale_color_manual(values = c('blue','red'))
+
+# 绘制转录本结构图
+p2 = ggplot(p_dat,aes(x=V2,y=mean)) +
+  # 绘制 5UTR 区
+  geom_rect(aes(xmin=21498133,ymin=0.05,xmax=21499600,ymax=0.1),fill='pink') + 
+  # 绘制 CDS 区
+  geom_rect(aes(xmin=21499600,ymin=0.025,xmax=21503664,ymax=0.125),fill='steelblue') +
+  # 绘制 3UTR 区
+  geom_rect(aes(xmin=21503664,ymin=0.05,xmax=21503829,ymax=0.1),fill='green') +
+  # 主题细节调整
+  theme_classic() + xlab('METTL3') + ylab('') +
+  theme_prism(border = F,base_size = 14) +
+  scale_y_continuous(limits = c(0,0.2)) +
+  theme(axis.line = element_line(colour = 'white'),
+        axis.text  = element_text(colour = 'white'),
+        axis.title.x = element_text(face = 'italic',vjust = 10),
+        axis.ticks = element_line(colour = 'white')) +
+  # 添加注释标签
+  geom_text(aes(label="5'UTR",x=(21499600-21498133)/2 + 21498133,y=0.17),size=4) +
+  geom_text(aes(label="CDS",x=(21503664-21499600)/2 + 21499600,y=0.17),size=4) +
+  geom_text(aes(label="3'UTR",x=(21503829-21503664)/2 + 21503664,y=0.17),size=4)
+#pdf("SA2WT_KO_METTL3_m6A_coverage.pdf",height=5.5,width=7)
+p1 + p2 + plot_layout(ncol = 1, heights = c(8, 1))
+```
+```{r}
+#############################################################################################################
+## YTHDC1
+## 取出 input 和 ip 组
+ip1 = YTHDC1[,c(1,2,5,6)]
+ip2 = YTHDC1[,c(1,2,9,10)]
+## 计算均值和标准差
+ip1$mean = apply(ip1[,c(3,4)], 1, mean)
+ip1$sd = apply(ip1[,c(3,4)], 1, sd)
+ip1$samp = 'SA2WT'
+colnames(ip1)[3:4] = c('V3','V4')
+
+ip2$mean = apply(ip2[,c(3,4)], 1, mean)
+ip2$sd = apply(ip2[,c(3,4)], 1, sd)
+ip2$samp = 'SA2KO'
+colnames(ip2)[3:4] = c('V3','V4')
+
+## 合并
+p_dat = rbind(ip1,ip2)
+## 查看最后合并后的数据
+p_dat$samp = factor(p_dat$samp,levels=c("SA2WT","SA2KO"))
+head(p_dat)
+# YTHDC1 transcript(chr4:68310387-68350089,CDS(68314102-68349753))
+p1 = ggplot(p_dat,aes(x=V2,y=mean)) +
+  geom_rect(aes(xmin=68314102,ymin=-Inf,xmax=68349753,ymax=Inf),fill='grey95',alpha=.35) +
+  geom_line(aes(color=samp),size=1) +
+  theme_prism(border = T,base_size = 14,base_line_size=1) +
+  xlab('') + ylab('Read Coverage') +
+  labs(title = 'MeRIP-seq read Distribution') +
+  #主题细节调整
+  theme(axis.title.y = element_text(size = 16),
+        plot.title = element_text(,hjust = .5,size = 16),
+        legend.position = c(0.05,0.9),
+        legend.background = element_blank(),
+        legend.text = element_text(size = 14,face = 'bold'),
+        legend.key.width = unit(1,'cm'),
+        legend.key.height = unit(0.6,'cm')) +
+  # 给线添加方差区间
+  # geom_ribbon(aes(ymin=mean - sd,ymax=mean + sd,fill=samp),alpha=.3,show.legend = F) +
+  # 调整颜色
+  scale_color_manual(values = c('blue','red'))
+  # scale_fill_manual(values = c('black','red'))
+
+# 绘制转录本结构图
+p2 = ggplot(p_dat,aes(x=V2,y=mean)) +
+  # 绘制 5UTR 区
+  geom_rect(aes(xmin=68310387,ymin=0.05,xmax=68314102,ymax=0.1),fill='pink') +
+  # 绘制 CDS 区
+  geom_rect(aes(xmin=68314102,ymin=0.025,xmax=68349753,ymax=0.125),fill='steelblue') +
+  # 绘制 3UTR 区
+  geom_rect(aes(xmin=68349753,ymin=0.05,xmax=68350089,ymax=0.1),fill='green') +
+  # 主题细节调整
+  theme_classic() + xlab('YTHDC1') + ylab('') +
+  theme_prism(border = F,base_size = 14) +
+  scale_y_continuous(limits = c(0,0.2)) +
+  theme(axis.line = element_line(colour = 'white'),
+        axis.text  = element_text(colour = 'white'),
+        axis.title.x = element_text(face = 'italic',vjust = 10),
+        axis.ticks = element_line(colour = 'white')) +
+  # 添加注释标签
+  geom_text(aes(label="5'UTR",x=(68314102-68310387)/2 + 68310387,y=0.17),size=4) +
+  geom_text(aes(label="CDS",x=(68349753-68314102)/2 + 68314102,y=0.17),size=4) +
+  geom_text(aes(label="3'UTR",x=(68350089-68349753)/2 + 68349753,y=0.17),size=4)
+
+p1 + p2 + plot_layout(ncol = 1, heights = c(8, 1))
+
+```
+
