@@ -1,0 +1,185 @@
+---
+title: "3D图形绘制示例"
+output: html_notebook
+---
+
+该文档是基于 Rayshader 和 ggplot2 软件包绘制3D图形的示例
+
+```{r}
+## 载入依赖包
+rm(list = ls())
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+library(tidyverse)
+library(rayshader)
+library(scales)
+library(stringr)
+library(ggpubr)
+library(hexbin)
+```
+
+```{r}
+## 第一种展示方式: 以 R 语言自带的 diamonds 数据集进行测试
+data_df = diamonds
+data_df
+ggdiamonds = ggplot(data_df) +
+             stat_density_2d(aes(x = x, y = depth, fill = after_stat(nlevel)), geom = "polygon", n = 200, bins = 50,contour = TRUE) +
+             facet_wrap(clarity~.) +
+             scale_fill_viridis_c(option = "A")+
+             theme(panel.grid = element_blank())
+print(ggdiamonds)
+## plot_gg 是用于将 ggplot2 绘制的图像转换为 3D 图像
+plot_gg(ggdiamonds, width = 5, height = 5, raytrace = FALSE, preview = TRUE)
+plot_gg(ggdiamonds, width = 5, height = 5, multicore = TRUE, scale = 250, 
+        zoom = 0.7, theta = 10, phi = 30, windowsize = c(800, 800))
+Sys.sleep(0.2)
+render_snapshot(clear = TRUE)
+```
+
+```{r}
+## 第二种展示方式: 等高线图, 以 R 语言自带的火山数据集进行示例
+#Contours and other lines will automatically be ignored. Here is the volcano dataset:
+volcano_df = volcano 
+volcano_df
+
+ggvolcano = volcano_df %>% 
+            melt() %>%
+            ggplot() +
+            geom_tile(aes(x = Var1, y = Var2, fill = value)) +
+            geom_contour(aes(x = Var1, y = Var2, z = value), color = "black") +
+            scale_x_continuous("X", expand = c(0, 0)) +
+            scale_y_continuous("Y", expand = c(0, 0)) +
+            scale_fill_gradientn("Z", colours = terrain.colors(10)) +
+            coord_fixed()
+print(ggvolcano)
+plot_gg(ggvolcano, width = 7, height = 4, raytrace = FALSE, preview = TRUE)
+plot_gg(ggvolcano, multicore = TRUE, raytrace = TRUE, width = 7, height = 4, scale = 300, windowsize = c(1400, 866), zoom = 0.6, phi = 30, theta = 30)
+Sys.sleep(0.2)
+render_snapshot(clear = TRUE)
+
+ggvolcano_surface = volcano_df %>%
+                    melt() %>%
+                    ggplot() +
+                    geom_contour(aes(x=Var1,y=Var2,z=value),color="black") +
+                    geom_contour_filled(aes(x=Var1,y=Var2,z=value))+
+                    scale_x_continuous("X",expand = c(0,0)) +
+                    scale_y_continuous("Y",expand = c(0,0)) +
+                    coord_fixed() +
+                    theme(legend.position = "none")
+
+plot_gg(ggvolcano_surface, ggobj_height = ggvolcano, multicore = TRUE, raytrace = TRUE, width = 7, height = 4, scale = 300, windowsize = c(1400, 866), zoom = 0.6, phi = 30, theta = 30)
+Sys.sleep(0.2)
+render_snapshot(clear = TRUE)
+```
+
+```{r}
+## 第三种展示方式: 3D 点图, 以 R 自带的 mtcars 数据集为例, rayshader可以接受 color 和 fill 的颜色并将其映射到 3D 图形, 但是如果同时输入 color 和 fill 将会默认映射 fill
+mtcars
+mtplot = ggplot(mtcars) + 
+         geom_point(aes(x = mpg, y = disp, color = cyl)) + 
+         scale_color_continuous(limits = c(0, 8))
+print(mtplot)
+plot_gg(mtplot, width = 3.5, raytrace = FALSE, preview = TRUE)
+plot_gg(mtplot, width = 3.5, multicore = TRUE, windowsize = c(800, 800), zoom = 0.85, phi = 35, theta = 30, sunangle = 225, soliddepth = 0)
+Sys.sleep(0.2)
+render_snapshot(clear = TRUE)
+```
+```{r}
+## 第四种展示方式: 梯田图, 利用颜色和线条来展示不同的效果
+a = data.frame(x = rnorm(20000, 10, 1.9), y = rnorm(20000, 10, 1.2))
+b = data.frame(x = rnorm(20000, 14.5, 1.9), y = rnorm(20000, 14.5, 1.9))
+c = data.frame(x = rnorm(20000, 9.5, 1.9), y = rnorm(20000, 15.5, 1.9))
+data = rbind(a, b, c)
+data
+#Lines
+pp = ggplot(data, aes(x = x, y = y)) +
+     geom_hex(bins = 20, size = 0.5, color = "black") +
+     scale_fill_viridis_c(option = "C")
+print(pp)
+plot_gg(pp, width = 5, height = 4, scale = 300, raytrace = FALSE, preview = TRUE)
+plot_gg(pp, width = 5, height = 4, scale = 300, multicore = TRUE, windowsize = c(1000, 800))
+render_camera(fov = 70, zoom = 0.5, theta = 130, phi = 35)
+Sys.sleep(0.2)
+render_snapshot(clear = TRUE)
+
+## 可以通过 render_depth() 函数调整展示方向
+plot_gg(pp, width = 5, height = 4, scale = 300, multicore = TRUE, windowsize = c(1200, 960), fov = 70, zoom = 0.4, theta = 330, phi = 40)
+Sys.sleep(0.2)
+render_depth(focallength = 100,clear=TRUE)
+```
+
+```{r}
+## 第五种展示方式: 3D 密度图
+mtplot_density = ggplot(mtcars) + 
+                 stat_density_2d(aes(x=mpg,y=disp, fill=after_stat(!!str2lang("density"))), geom = "raster", contour = FALSE) +
+                 scale_x_continuous(expand=c(0,0)) +
+                 scale_y_continuous(expand=c(0,0)) +
+                 scale_fill_gradient(low="pink", high="red")
+##1
+print(mtplot_density)
+##2
+plot_gg(mtplot_density, width = 4,zoom = 0.60, theta = -45, phi = 30, windowsize = c(1400,866))
+render_snapshot()
+##3
+## 分面绘制
+mtplot_density_facet = mtplot_density + facet_wrap(~cyl) 
+## 2D 展示
+plot_gg(mtplot_density_facet, preview = TRUE)
+## 2D 加宽
+plot_gg(mtplot_density_facet, width = 6, preview = TRUE)
+## 3D 展示
+plot_gg(mtplot_density_facet, width = 6, windowsize=c(1400,866), zoom = 0.55, theta = -10, phi = 25, scale=300)
+render_snapshot()
+## 3D 并排展示
+plot_gg(mtplot_density_facet, width = 6, windowsize=c(1400,866), zoom = 0.65, theta = -25, phi = 35, scale=300, flat_plot_render=TRUE, flat_direction = "x")
+render_snapshot()
+```
+使用自己的数据绘制测试一下
+```{r}
+bin_data = read.table("D:/plot_data/3D_data/rawMatrix.chr9_17771901_18356900.txt", sep = "\t", header = F)
+bin_data_WT = bin_data[,1:2]
+
+bin_data_start = sapply(strsplit(bin_data_WT$V1, split = "_"), function(x){return(x[2])}) %>% as.numeric()
+bin_data_end = sapply(strsplit(bin_data_WT$V1, split = "_"), function(x){return(x[3])}) %>% as.numeric()
+
+bin_data_WT$start = bin_data_start
+bin_data_WT$end = bin_data_end
+bin_data_WT$V2 = bin_data_WT$V2 - 1
+
+bin_data_SA2KO = bin_data[,1:2]
+bin_data_SA2KO$start = bin_data_start
+bin_data_SA2KO$end = bin_data_end
+bin_data_SA2KO$V2 = bin_data_SA2KO$V2 - 1
+
+
+
+binplot = ggplot(bin_data_SA2KO) + 
+  geom_point(aes(y = start, x = end, color = V2), size = 1) + 
+    scale_color_viridis_c(trans = 'sqrt',  
+                          direction = -1,
+                          limits = c(0, 150),
+                          breaks = c(0,2.5, 10, 25, 50, 75, 100, 150),
+                          labels = c("0", "2.5","10", "25",  "50",'75', "100", "150" ))+
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank())
+
+plot_gg(binplot, width = 3.5, raytrace = FALSE, preview = TRUE)
+plot_gg(binplot, width = 3.5, multicore = TRUE, windowsize = c(800, 800), zoom = 0.85, phi = 35, theta = 30, sunangle = 225, soliddepth = 0)
+Sys.sleep(0.2)
+render_snapshot(clear = TRUE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
