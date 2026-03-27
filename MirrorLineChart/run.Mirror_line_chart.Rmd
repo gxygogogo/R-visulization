@@ -1,0 +1,101 @@
+---
+title: "镜像折线图"
+output: html_notebook
+---
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(reshape2)
+library(UpSetR)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+library(ChIPseeker)
+```
+```{r}
+#### TSS距离
+SA2KO_UP = "D:/plot_data/LinePlot/SA2KO_UP_summit.bed"
+SA2KO_DOWN = "D:/plot_data/LinePlot/SA2KO_DOWN_summit.bed"
+SA1KO_UP = "D:/plot_data/LinePlot/SA1KO_UP_summit.bed"
+SA1KO_DOWN = "D:/plot_data/LinePlot/SA1KO_DOWN_summit.bed"
+file_list = list(SA2KO_UP, SA2KO_DOWN, SA1KO_UP, SA1KO_DOWN)
+txdb = TxDb.Hsapiens.UCSC.hg38.knownGene
+peak = GenomicRanges::GRangesList(SA2KO_UP = readPeakFile(file_list[[1]]), SA1KO_DOWN = readPeakFile(file_list[[2]]), SA1KO_UP = readPeakFile(file_list[[3]]), SA1KO_DOWN = readPeakFile(file_list[[4]]))
+
+## generate AnnotationList
+peakAnnoList = lapply(file_list, annotatePeak, TxDb=txdb, tssRegion=c(-3000, 3000))
+
+peakAnno_SA2KO_UP = annotatePeak(file_list[[1]], tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
+peakAnno_SA2KO_DOWN = annotatePeak(file_list[[2]], tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
+peakAnno_SA1KO_UP = annotatePeak(file_list[[3]], tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
+peakAnno_SA1KO_DOWN = annotatePeak(file_list[[4]], tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
+
+###### 绘制TSS距离分布图
+p = plotDistToTSS(peakAnnoList)
+plot_df = p$data
+plot_df$type = NA
+plot_df[which(plot_df$.id == "Peak1"),"type"] = "SA2KO UP"
+plot_df[which(plot_df$.id == "Peak2"),"type"] = "SA2KO DOWN"
+plot_df[which(plot_df$.id == "Peak3"),"type"] = "SA1KO UP"
+plot_df[which(plot_df$.id == "Peak4"),"type"] = "SA1KO DOWN"
+plot_df$type = factor(plot_df$type, levels = c("SA2KO UP", "SA2KO DOWN", "SA1KO UP", "SA1KO DOWN"))
+```
+```{r}
+## y轴刻度值设置
+ylab = abs(seq(-50, 50, by = 10))
+ylab[ylab == 0] = "TSS"
+lbs = c("0-1kb", "1-3kb", "3-5kb", "5-10kb", "10-100kb", ">100kb")
+cols = c("#9ecae1", "#3182bd", "#C7A76C", "#86B875", "#39BEB1", "#CD99D8")
+
+ggplot(plot_df, aes(x=type, fill=Feature))+ 
+  geom_bar(data=subset(plot_df, sign==1), aes(y=freq), stat="identity") +
+  geom_bar(data=subset(plot_df, sign==-1), aes(y=-freq), stat="identity")+ 
+  geom_hline(yintercept = 0, colour = "#606060", lty = 2) +
+  coord_flip() + 
+  ylab("Binding sites(%) 5'-->3'")+
+  ggtitle("Distribution of transcription factor-binding loci relative to TSS")+
+  scale_y_continuous(breaks=seq(-50, 50, by = 10),labels=ylab)+
+  scale_fill_manual(values=rev(cols), breaks=rev(lbs), labels=rev(lbs), guide=guide_legend(reverse=TRUE))+
+  theme_bw()+
+  theme(panel.grid = element_blank(),
+        axis.title.y = element_blank(),
+        axis.title.x = element_text(face = "bold"),
+        axis.text.x = element_text(color = "black", size = 10),
+        axis.text.y = element_text(color = "black", size = 10, face = "bold"),
+        plot.title = element_text(hjust = 0.5, color = "black", face = "bold", size = 12))
+```
+
+```{r}
+## 镜像折线图
+plot_df[which(plot_df$sign == -1), "freq"] = -(plot_df[which(plot_df$sign == -1), "freq"])
+plot_df$ori = "+"
+plot_df[which(plot_df$sign == -1), "ori"] = "-"
+
+plot_df_up = plot_df[which(plot_df$sign == 1), c("Feature", "freq", "type")]
+plot_df_down = plot_df[which(plot_df$sign == -1), c("Feature", "freq", "type")]
+
+df = cbind(plot_df_up, plot_df_down)
+
+ggplot(df, aes(x = x))+
+  geom_point(aes(x = Feature...1, y = freq...2, group = type...3, colour = type...3), size = 2, shape = 15)+
+  geom_line(aes(x = Feature...1, y = freq...2, group = type...3, colour = type...3), linewidth = 1)+
+  scale_colour_manual(values = c("#F2B90C", "#96F20C", "#05AFF2", "#F23322"))+
+  geom_label(aes(x = 6, y = 25, label = "UpStream"))+
+  geom_point(aes(x = Feature...4, y = freq...5, group = type...6, colour = type...6), size = 2, shape = 15)+
+  geom_line(aes(x = Feature...4, y = freq...5, group = type...6, colour = type...6), linewidth = 1)+
+  scale_colour_manual(values = c("#F2B90C", "#96F20C", "#05AFF2", "#F23322"))+
+  scale_y_continuous(labels = abs)+
+  geom_label(aes(x = 6, y = -25, label = "DownStream"))+
+  geom_hline(yintercept = 0)+
+  labs(y = "Percentage(%)", title = "Percentage of differential peak to TSS")+
+  theme_minimal()+
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.y = element_blank(),
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        axis.line.y.left = element_line(colour = "black"),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(face = "bold", colour = "black"),
+        axis.text.y = element_text(colour = "black"),
+        axis.title.y = element_text(face = "bold"),
+        legend.key = element_blank(),
+        legend.title = element_blank())
+```
