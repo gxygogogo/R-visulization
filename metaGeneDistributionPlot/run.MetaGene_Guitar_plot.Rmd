@@ -1,0 +1,127 @@
+---
+title: "MetaGene plot"
+output: html_notebook
+---
+
+```{r}
+rm(list = ls())
+library(Guitar)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+setwd("D:/plot_data/metaGene")
+```
+使用合并后的peak
+```{r}
+## merge peak
+stBedFiles = list(system.file("extdata", "GM12878_MeRIPseq_ChrRNA_peaks.narrowPeak",package="Guitar"),
+                  system.file("extdata", "GM12878_SA2KO_MeRIPseq_ChrRNA_peaks.narrowPeak",package="Guitar"))
+## 使用Guitar软件包进行绘制，从生成的对象中提取自己所需的数据
+p_basic = GuitarPlot(txGenomeVer = "hg38",
+                      stBedFiles = stBedFiles,
+                      miscOutFilePrefix = NA,
+                      headOrtail = TRUE,
+                      enableCI = FALSE,
+                      txMrnaComponentProp = NULL,
+                      mapFilterTranscript = TRUE,
+                      pltTxType = c("mrna"),
+                      stGroupName = c("Wild type", "SA2KO"))
+## 提取需要的数据使用ggplot2进行个性化绘制
+plot_df = p_basic$data
+head(plot_df)
+ggplot(plot_df)+
+  geom_line(aes(x = x, y = density, color = group), size = 1)+
+  # 每一条竖线的坐标需要根据p_basic对象中的componentWidth来计算得到
+  geom_vline(xintercept = c(0.2216,0.2875,0.531,0.7785), linetype = 2, colour = "grey", size = 1)+
+  # 起始1Kb
+  geom_rect(aes(xmin=0,ymin=-0.015,xmax=0.2216,ymax=0.015),fill='#FF9C08')+
+  # 绘制 5UTR 区
+  geom_rect(aes(xmin=0.2217,ymin=-0.0325,xmax=0.2875,ymax=0.0325),fill='#F241D5') + 
+  # 绘制 CDS 区
+  geom_rect(aes(xmin=0.2875,ymin=-0.0525,xmax=0.531,ymax=0.0525),fill='#05F2F2') +
+  # 绘制 3UTR 区
+  geom_rect(aes(xmin=0.5311,ymin=-0.0325,xmax=0.7785,ymax=0.0325),fill='#04D94F')+
+  # 终止1Kb
+  geom_rect(aes(xmin=0.7786,ymin=-0.015,xmax=1,ymax=0.015),fill='#FF9C08')+
+  # 添加label, 使用geom_text()添加标签，需要使用一个空数据框来重置数据源以消除所添加的标签的锯齿
+  # 起始1Kb
+  geom_text(data = data.frame(), aes(label = "1Kb", x = 0.1108, y = -0.15), fontface = "bold", size = 4)+
+  # 5UTR 区
+  geom_text(data = data.frame(), aes(label = "5'UTR", x = 0.2546, y = -0.15), fontface = "bold", size = 4)+
+  # CDS 区
+  geom_text(data = data.frame(), aes(label = "CDS", x = 0.4093, y = -0.15), fontface = "bold", size = 4)+
+  # 3UTR 区
+  geom_text(data = data.frame(), aes(label = "3'UTR", x = 0.6548, y = -0.15), fontface = "bold", size = 4)+
+  # 终止1Kb
+  geom_text(data = data.frame(), aes(label = "1Kb", x = 0.8893, y = -0.15), fontface = "bold", size = 4)+
+  labs(y = "Density")+
+  theme_bw()+
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(colour = "black", size = 12),
+        axis.text.y = element_text(colour = "black", size = 12),
+        axis.title.y = element_text(face = "bold", colour = "black", size = 14),
+        panel.grid = element_blank(),
+        panel.border = element_rect(linewidth = 0.8),
+        legend.title = element_blank(),
+        legend.position = c(.9,.9),
+        legend.text = element_text(size = 10),
+        legend.background = element_blank(),
+        legend.box.background = element_blank())
+```
+单个生物学重复绘制
+```{r}
+### each replicates
+stBedFiles = list(system.file("extdata", "GM12878_MeRIPseq_ChrRNA_20220725_B1S2_peaks.narrowPeak",package="Guitar"),
+                  system.file("extdata", "GM12878_MeRIPseq_ChrRNA_20220815_B2S2_peaks.narrowPeak",package="Guitar"),
+                  system.file("extdata", "GM12878_SA2KOA13_MeRIPseq_ChrRNA_20220725_B1S2_peaks.narrowPeak",package="Guitar"),
+                  system.file("extdata", "GM12878_SA2KOA13_MeRIPseq_ChrRNA_20220815_B2S2_peaks.narrowPeak",package="Guitar"))
+
+p_basic = GuitarPlot(txGenomeVer = "hg38",
+                      stBedFiles = stBedFiles,
+                      miscOutFilePrefix = NA,
+                      headOrtail = TRUE,
+                      enableCI = FALSE,
+                      txMrnaComponentProp = NULL,
+                      mapFilterTranscript = TRUE,
+                      pltTxType = c("mrna"),
+                      stGroupName = c("WT B1", "WT B2", "SA2KO B1", "SA2KO B2"))
+## 提取需要的数据使用ggplot2进行个性化绘制
+plot_df = p_basic$data
+head(plot_df)
+ggplot(plot_df)+
+  geom_line(aes(x = x, y = density, color = group), size = 1)+
+  # 每一条竖线的坐标需要根据p_basic对象中的componentWidth来计算得到
+  geom_vline(xintercept = c(0.2216,0.2875,0.531,0.7785), linetype = 2, colour = "grey", size = 1)+
+  # 起始1Kb
+  geom_rect(aes(xmin=0,ymin=-0.015,xmax=0.2216,ymax=0.015),fill='#FF9C08')+
+  # 绘制 5UTR 区
+  geom_rect(aes(xmin=0.2217,ymin=-0.0325,xmax=0.2875,ymax=0.0325),fill='#F241D5') + 
+  # 绘制 CDS 区
+  geom_rect(aes(xmin=0.2875,ymin=-0.0525,xmax=0.531,ymax=0.0525),fill='#05F2F2') +
+  # 绘制 3UTR 区
+  geom_rect(aes(xmin=0.5311,ymin=-0.0325,xmax=0.7785,ymax=0.0325),fill='#04D94F')+
+  # 终止1Kb
+  geom_rect(aes(xmin=0.7786,ymin=-0.015,xmax=1,ymax=0.015),fill='#FF9C08')+
+  # 添加label, 使用geom_text()添加标签，需要使用一个空数据框来重置数据源以消除所添加的标签的锯齿
+  # 起始1Kb
+  geom_text(data = data.frame(), aes(label = "1Kb", x = 0.1108, y = -0.15), fontface = "bold", size = 4)+
+  # 5UTR 区
+  geom_text(data = data.frame(), aes(label = "5'UTR", x = 0.2546, y = -0.15), fontface = "bold", size = 4)+
+  # CDS 区
+  geom_text(data = data.frame(), aes(label = "CDS", x = 0.4093, y = -0.15), fontface = "bold", size = 4)+
+  # 3UTR 区
+  geom_text(data = data.frame(), aes(label = "3'UTR", x = 0.6548, y = -0.15), fontface = "bold", size = 4)+
+  # 终止1Kb
+  geom_text(data = data.frame(), aes(label = "1Kb", x = 0.8893, y = -0.15), fontface = "bold", size = 4)+
+  labs(y = "Density")+
+  theme_bw()+
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(colour = "black", size = 12),
+        axis.text.y = element_text(colour = "black", size = 12),
+        axis.title.y = element_text(face = "bold", colour = "black", size = 14),
+        panel.grid = element_blank(),
+        panel.border = element_rect(linewidth = 0.8),
+        legend.title = element_blank(),
+        legend.position = c(.9,.9),
+        legend.text = element_text(size = 10),
+        legend.background = element_blank(),
+        legend.box.background = element_blank())
+```
