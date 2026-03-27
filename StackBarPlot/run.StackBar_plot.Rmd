@@ -1,0 +1,72 @@
+---
+title: "堆积条形图"
+output: html_notebook
+---
+
+```{r}
+rm(list=ls())
+
+library(ggplot2)
+library(dplyr)
+library(reshape2)
+library(ggsci)
+```
+```{r}
+################################################################################################################################################
+##制作绘制条形图所需的数据
+chromData = function(df, label){
+  ##添加label
+  df$label = rep(label, dim(df)[1])
+  ##统计每种染色质状态，并去除每个数字前面的空格
+  df_stat = data.frame(table(df$V2))
+  df_stat$Freq = gsub("\\s+", "", df_stat$Freq)
+  ##添加分组
+  df_stat$group = rep(label, dim(df_stat)[1])
+  ##计算各种染色质状态占比
+  df_stat$labels = scales::percent(as.numeric(df_stat$Freq)/sum(as.numeric(df_stat$Freq)))
+  df_stat$Perc = as.numeric(df_stat$Freq)/sum(as.numeric(df_stat$Freq))
+  return(df_stat)
+}
+
+################################################################################################################################################
+WT_SA2KO_UP_chromHMM = read.table("D:/plot_data/StackBar_plot/SA2KO_UP_chromHMM.txt", sep = "\t", header = F)
+WT_SA2KO_DOWN_chromHMM = read.table("D:/plot_data/StackBar_plot/SA2KO_DOWN_chromHMM.txt", sep = "\t", header = F)
+WT_CKO_UP_chromHMM = read.table("D:/plot_data/StackBar_plot/CKO_UP_chromHMM.txt", sep = "\t", header = F)
+WT_CKO_DOWN_chromHMM = read.table("D:/plot_data/StackBar_plot/CKO_DOWN_chromHMM.txt", sep = "\t", header = F)
+WT_NKO_UP_chromHMM = read.table("D:/plot_data/StackBar_plot/NKO_UP_chromHMM.txt", sep = "\t", header = F)
+WT_NKO_DOWN_chromHMM = read.table("D:/plot_data/StackBar_plot/NKO_DOWN_chromHMM.txt", sep = "\t", header = F)
+WT_SA1KO_UP_chromHMM = read.table("D:/plot_data/StackBar_plot/SA1KO_UP_chromHMM.txt", sep = "\t", header = F)
+WT_SA1KO_DOWN_chromHMM = read.table("D:/plot_data/StackBar_plot/SA1KO_DOWN_chromHMM.txt", sep = "\t", header = F)
+################################################################################################################################################
+plot_df = rbind(chromData(WT_CKO_UP_chromHMM, label = "WT_CKO UP peak"),
+                chromData(WT_CKO_DOWN_chromHMM, label = "WT_CKO DOWN peak"),
+                chromData(WT_NKO_UP_chromHMM, label = "WT_NKO UP peak"),
+                chromData(WT_NKO_DOWN_chromHMM, label = "WT_NKO DOWN peak"),
+                chromData(WT_SA2KO_UP_chromHMM, label = "WT_SA2KO UP peak"),
+                chromData(WT_SA2KO_DOWN_chromHMM, label = "WT_SA2KO DOWN peak"),
+                chromData(WT_SA1KO_UP_chromHMM, label = "WT_SA1KO UP peak"),
+                chromData(WT_SA1KO_DOWN_chromHMM, label = "WT_SA1KO DOWN peak"))
+colnames(plot_df)[1] = "State"
+plot_df$Freq = as.numeric(plot_df$Freq)
+plot_df$group = factor(plot_df$group, levels = c("WT_CKO UP peak", "WT_NKO UP peak", "WT_SA2KO UP peak","WT_SA1KO UP peak", "WT_CKO DOWN peak", "WT_NKO DOWN peak", "WT_SA2KO DOWN peak","WT_SA1KO DOWN peak"))
+
+head(plot_df)
+
+################################################################################################################################################
+ggplot(plot_df,aes(x = group, y = Freq, fill = State)) +
+  geom_col(position = position_fill(),width = 0.6) +
+  theme_bw(base_size = 16) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme(panel.grid = element_blank(),
+        legend.position = 'right',
+        legend.key.size = unit(10,"pt"),
+        legend.text = element_text(size = 9),
+        strip.text.x = element_text(size = 14),
+        axis.text.x = element_text(angle = 45, vjust = 0.85, hjust = 0.75, face = "bold", size = 7),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(face = "bold"),
+        axis.text.y = element_text(colour = "black"))+
+  labs(y = "Percent")+
+  scale_fill_npg()
+
+```
